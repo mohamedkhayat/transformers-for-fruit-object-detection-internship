@@ -1,6 +1,6 @@
 # Fruit Internship Project
 
-Transformer-based object detection pipeline for fruit localization, built as part of a university internship. The current version supports object detection only and is designed to be extended into a multi-task learning setup (e.g., for weight and volume prediction).
+Transformer-based object detection pipeline for fruit localization, built as part of a university internship.
 
 ---
 
@@ -423,13 +423,6 @@ Auto-generated using Sphinx + AutoAPI.
 
 view docs:
 `https://mohamedkhayat.github.io/fruit_internship`
-
----
-
-## Roadmap
-
-* Support multi-task training (detection + regression)
-* Unit test coverage and CI for training and data loaders
 
 ---
 
