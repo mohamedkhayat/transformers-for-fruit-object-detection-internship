@@ -205,7 +205,7 @@ wandb/
 !Test/.gitkeep
 !checkpoints/.gitkeep
 outputs
-
+output
 
 .vscode
 
