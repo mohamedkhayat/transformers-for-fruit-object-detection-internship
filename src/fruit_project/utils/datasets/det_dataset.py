@@ -91,7 +91,15 @@ class DET_DS(Dataset):
             # Structure: root/images/train, root/labels/train (default)
             self.image_dir = self.root_dir / image_folder / split_folder
             self.label_dir = self.root_dir / label_folder / split_folder
-        raw_paths = sorted(list(pathlib.Path(self.image_dir).glob("*.jpg")))
+
+        extensions = [".jpg", ".jpeg", ".png", ".JPG", ".JPEG", ".PNG"]
+        raw_paths = sorted(
+            [
+                p
+                for p in pathlib.Path(self.image_dir).iterdir()
+                if p.suffix in extensions
+            ]
+        )
 
         self.labels = [name for name in config["names"]]
         self.id2lbl = dict(enumerate(self.labels))
