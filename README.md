@@ -135,6 +135,121 @@ The environment is now ready.
 
 ---
 
+## Dataset Setup
+
+This project uses YOLO-format datasets with configurable folder structures. Each dataset requires a `data.yaml` configuration file.
+
+### Supported Folder Structures
+
+The project supports two common dataset layouts:
+
+#### Structure A: Type-First (`type_first`) - Default
+```
+data/my_dataset/
+├── data.yaml
+├── images/
+│   ├── train/
+│   │   ├── img001.jpg
+│   │   └── ...
+│   ├── val/
+│   └── test/
+└── labels/
+    ├── train/
+    │   ├── img001.txt
+    │   └── ...
+    ├── val/
+    └── test/
+```
+
+#### Structure B: Split-First (`split_first`)
+```
+data/my_dataset/
+├── data.yaml
+├── train/
+│   ├── images/
+│   │   ├── img001.jpg
+│   │   └── ...
+│   └── labels/
+│       ├── img001.txt
+│       └── ...
+├── val/
+│   ├── images/
+│   └── labels/
+└── test/
+    ├── images/
+    └── labels/
+```
+
+### Creating the Dataset Configuration File
+
+Create a `data.yaml` file in your dataset root directory:
+
+```yaml
+# Folder structure configuration
+folders:
+  images: images          # Name of the images folder
+  labels: labels          # Name of the labels folder
+  train: train            # Name of the training split folder
+  val: val                # Name of the validation split folder (use 'valid' if needed)
+  test: test              # Name of the test split folder
+  structure: type_first   # Either 'type_first' or 'split_first'
+
+# Class configuration
+nc: 3                     # Number of classes
+names:                    # List of class names (order matters - matches label IDs)
+  - Apple
+  - Orange
+  - Banana
+```
+
+### Label Format (YOLO)
+
+Each image should have a corresponding `.txt` label file with the same name. Each line in the label file represents one object:
+
+```
+<class_id> <x_center> <y_center> <width> <height>
+```
+
+- `class_id`: Integer class index (0-indexed, matching the order in `names`)
+- `x_center`, `y_center`: Normalized center coordinates (0-1)
+- `width`, `height`: Normalized dimensions (0-1)
+
+**Example label file (`img001.txt`):**
+```
+0 0.5 0.5 0.2 0.3
+1 0.3 0.7 0.15 0.25
+```
+
+### Example: Setting Up a Roboflow Dataset
+
+Datasets exported from Roboflow typically use the `split_first` structure:
+
+```yaml
+# data.yaml for Roboflow export
+folders:
+  images: images
+  labels: labels
+  train: train
+  val: valid              # Roboflow uses 'valid' instead of 'val'
+  test: test
+  structure: split_first  # Roboflow uses split-first structure
+
+nc: 12
+names: ['Class1', 'Class2', 'Class3', ...]
+```
+
+### Running on Your Dataset
+
+1. Place your dataset in the `data/` directory
+2. Create or verify the `data.yaml` configuration file
+3. Run training with your dataset:
+
+```bash
+python src/fruit_project/main.py root_dir=my_dataset data_conf_file=data.yaml
+```
+
+---
+
 ## Usage
 
 ### Train with Default Settings
@@ -146,44 +261,139 @@ python src/fruit_project/main.py
 ### Customize with Hydra CLI
 
 ```bash
-python src/fruit_project/main.py model=detrv2_50 lr=5e-5 aug=safe
+python src/fruit_project/main.py model=rtdetrv2_50 lr=5e-5 aug=safe
 ```
 
-### Dataset Setup
+### Common Training Examples
 
-* Data must be in YOLO format under `data/Fruit_dataset/`
-* To auto-download from Kaggle, set `download_data: true` in `conf/config.yaml` or `download_data=True` as an argument and set the corresponding environement variables
+**Train on a custom dataset:**
+```bash
+python src/fruit_project/main.py root_dir=my_dataset data_conf_file=data.yaml
+```
+
+**Train with a larger model and more epochs:**
+```bash
+python src/fruit_project/main.py \
+    model=dfine_xlarge_obj365 \
+    root_dir=my_dataset \
+    data_conf_file=data.yaml \
+    epochs=80 \
+    lr=1e-4 \
+    effective_batch_size=64 \
+    step_batch_size=16
+```
+
+**Train with Mosaic augmentation:**
+```bash
+python src/fruit_project/main.py \
+    root_dir=my_dataset \
+    mosaic.use=True \
+    mosaic.prob=0.4 \
+    aug=hard
+```
+
+**Train with mixed precision and EMA:**
+```bash
+python src/fruit_project/main.py \
+    root_dir=my_dataset \
+    fp16=True \
+    ema.use=True \
+    ema.decay=0.999
+```
 
 ---
 
 ## Configuration
 
-The training process is configured using Hydra. The main configuration file is `conf/config.yaml`.
+This project uses two types of configuration files:
 
-Here are some of the key configuration options:
+### 1. Project Configuration (`conf/config.yaml`)
+
+The main training configuration file using Hydra. This controls model selection, training hyperparameters, and runtime options.
+
+**Key Training Parameters:**
 
 | Parameter | Description | Default |
 |---|---|---|
-| `effective_batch_size` | The total batch size across all GPUs. | `64` |
-| `step_batch_size` | The batch size for each gradient accumulation step. | `8` |
+| `model` | Model configuration to use (from `conf/model/`). | `rtdetrv2_50` |
+| `effective_batch_size` | The total batch size (used for gradient accumulation). | `64` |
+| `step_batch_size` | The batch size per forward pass. | `4` |
 | `epochs` | The total number of training epochs. | `30` |
-| `lr` | The base learning rate for the prediction heads. | `0.0001` |
-| `lr_back_factor` | Factor to divide `lr` by for the backbone. | `50` |
-| `lr_enc_dec_factor` | Factor to divide `lr` by for the transformer encoder/decoder. | `5` |
-| `weight_decay` | The weight decay for the optimizer. | `0.01` |
-| `warmup_epochs` | The number of warmup epochs for the learning rate scheduler. | `5` |
-| `root_dir` | The root directory of the dataset. | `Fruit_dataset` |
+| `lr` | The base learning rate. | `1e-4` |
+| `weight_decay` | The weight decay for the optimizer. | `1e-4` |
+| `warmup_epochs` | The number of warmup epochs for the LR scheduler. | `5` |
+| `patience` | The patience for early stopping. | `15` |
+| `delta` | Minimum improvement for early stopping. | `0.001` |
+
+**Dataset Parameters:**
+
+| Parameter | Description | Default |
+|---|---|---|
+| `root_dir` | The dataset directory name (under `data/`). | `Fruit_dataset` |
+| `data_conf_file` | The dataset configuration YAML file name. | `data.yaml` |
+| `download_data` | Whether to auto-download from Kaggle. | `False` |
+
+**Learning Rate Scaling:**
+
+| Parameter | Description | Default |
+|---|---|---|
+| `lr_back_factor` | Factor to divide `lr` by for the backbone. | `10` |
+| `lr_neck_factor` | Factor to divide `lr` by for the neck/encoder. | `5` |
+| `smart_optim` | Use smart parameter grouping for optimizer. | `False` |
+
+**Augmentation & Sampling:**
+
+| Parameter | Description | Default |
+|---|---|---|
+| `aug` | The augmentation level (`hard` or `safe`). | `hard` |
+| `do_sample` | Whether to use weighted random sampling. | `False` |
+| `min_area` | Minimum bounding box area to keep. | `15.0` |
+
+**Mosaic Augmentation:**
+
+| Parameter | Description | Default |
+|---|---|---|
+| `mosaic.use` | Whether to use Mosaic augmentation. | `False` |
+| `mosaic.prob` | The probability of applying Mosaic. | `0.0` |
+| `mosaic.disable_epoch` | Epochs before end to disable Mosaic. | `15` |
+
+**Model Training Options:**
+
+| Parameter | Description | Default |
+|---|---|---|
+| `freeze_backbone` | Whether to freeze the backbone. | `False` |
+| `partially_freeze_backbone` | Unfreeze last stage of backbone. | `False` |
+| `fp16` | Use mixed precision (FP16) training. | `True` |
+| `optim` | Optimizer type (`torch`, `8bit`). | `8bit` |
+
+**EMA (Exponential Moving Average):**
+
+| Parameter | Description | Default |
+|---|---|---|
+| `ema.use` | Whether to use EMA weights. | `True` |
+| `ema.decay` | EMA decay factor. | `0.999` |
+
+**Checkpointing:**
+
+| Parameter | Description | Default |
+|---|---|---|
+| `ckpt.save` | Whether to save checkpoints. | `False` |
+| `ckpt.load.model_only` | Load only model weights from checkpoint. | `False` |
+| `ckpt.load.all` | Load full training state from checkpoint. | `False` |
+
+**Logging & Misc:**
+
+| Parameter | Description | Default |
+|---|---|---|
 | `log` | Whether to log to Weights & Biases. | `True` |
 | `seed` | The random seed for reproducibility. | `42` |
-| `patience` | The patience for early stopping. | `15` |
-| `aug` | The augmentation level to use (`hard` or `safe`). | `hard` |
-| `do_sample` | Whether to use weighted random sampling. | `True` |
-| `freeze_backbone` | Whether to freeze the backbone of the model. | `True` |
-| `partially_freeze_backbone` | Unfreezes the last stage of the backbone for fine-tuning. | `False` |
-| `freeze_encoder` | Whether to freeze the transformer encoder. | `False` |
-| `mosaic.use` | Whether to use Mosaic augmentation. | `True` |
-| `mosaic.prob` | The probability of applying Mosaic augmentation. | `0.8` |
-| `mosaic.disable_epoch` | Number of epochs remaining at which to disable Mosaic augmentation. | `10` |
+| `num_workers` | Number of dataloader workers. | `4` |
+| `n_images` | Number of images to log for visualization. | `6` |
+| `upload` | Whether to upload model artifacts. | `False` |
+
+### 2. Dataset Configuration (`data/<dataset>/data.yaml`)
+
+Each dataset has its own configuration file that defines the folder structure and class labels. See the [Dataset Setup](#dataset-setup) section for details.
 
 ---
 

@@ -1,14 +1,23 @@
+# Folder structure configuration
+folders:
+  images: images
+  labels: labels
+  train: train
+  val: val
+  test: test
+  structure: type_first
+
 names:
-- Apple
-- Cherry
-- Figs
-- Olive
-- Pomegranate
-- Orange
-- Rockmelon
-- Strawberry
-- Potato
-- Tomato
-- Watermelon
-- Bell-pepper
+- Apple  # 0
+- Cherry #1
+- Figs # 2
+- Olive # 3
+- Pomegranate # 4
+- Orange # 5
+- Rockmelon # 6
+- Strawberry # 7
+- Potato # 8
+- Tomato # 9
+- Watermelon #10
+- Bell-pepper #11
 nc: 12

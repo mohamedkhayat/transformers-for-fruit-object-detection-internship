@@ -9,6 +9,7 @@ lr: 1e-4
 weight_decay: 1e-4
 warmup_epochs: 5
 root_dir: Fruit_dataset
+data_conf_file : data.yaml
 log : True
 seed : 42
 n_images : 6
@@ -22,7 +23,7 @@ wait : False
 info : False
 min_area : 15.0
 aug : hard
-do_sample : True
+do_sample : False
 freeze_backbone : False
 partially_freeze_backbone : False
 upload : False

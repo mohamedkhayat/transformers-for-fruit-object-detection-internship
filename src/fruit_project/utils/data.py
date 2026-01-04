@@ -13,7 +13,6 @@ from fruit_project.utils.general import seed_worker
 import os
 from collections import Counter
 import torch
-from hydra.utils import get_original_cwd
 import resource  # <-- Import the resource module
 from albumentations import Compose
 from typing import Dict, List, Tuple
@@ -71,36 +70,29 @@ def make_datasets(cfg: DictConfig) -> Tuple[DET_DS, DET_DS, DET_DS]:
         download_dataset()
 
     print("making datasets")
-    data_dir = os.path.join(get_original_cwd(), "data", cfg.root_dir)
 
     train_ds_base = DET_DS(
-        data_dir,
-        "train",
-        "images",
-        "labels",
-        "data.yaml",
-        None,
-        cfg.model.do_normalize,
-    )
-
-    test_ds = DET_DS(
-        data_dir,
-        "test",
-        "images",
-        "labels",
-        "data.yaml",
-        None,
-        cfg.model.do_normalize,
+        root_dir=cfg.root_dir,
+        split="train",
+        config_file=cfg.data_conf_file,
+        transforms=None,
+        normalize=cfg.model.do_normalize,
     )
     val_ds = DET_DS(
-        data_dir,
-        "val",
-        "images",
-        "labels",
-        "data.yaml",
-        None,
-        cfg.model.do_normalize,
+        root_dir=cfg.root_dir,
+        split="val",
+        config_file=cfg.data_conf_file,
+        transforms=None,
+        normalize=cfg.model.do_normalize,
     )
+    test_ds = DET_DS(
+        root_dir=cfg.root_dir,
+        split="test",
+        config_file=cfg.data_conf_file,
+        transforms=None,
+        normalize=cfg.model.do_normalize,
+    )
+
     return train_ds_base, test_ds, val_ds
 
 
