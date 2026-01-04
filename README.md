@@ -331,7 +331,6 @@ The main training configuration file using Hydra. This controls model selection,
 |---|---|---|
 | `root_dir` | The dataset directory name (under `data/`). | `Fruit_dataset` |
 | `data_conf_file` | The dataset configuration YAML file name. | `data.yaml` |
-| `download_data` | Whether to auto-download from Kaggle. | `False` |
 
 **Learning Rate Scaling:**
 

@@ -16,7 +16,6 @@ n_images : 6
 patience : 15
 delta : 0.001
 num_workers : 4
-download_data : False
 lr_back_factor : 10
 lr_neck_factor : 5
 wait : False

@@ -13,47 +13,9 @@ from fruit_project.utils.general import seed_worker
 import os
 from collections import Counter
 import torch
-import resource  # <-- Import the resource module
 from albumentations import Compose
 from typing import Dict, List, Tuple
 from transformers import AutoImageProcessor, BatchEncoding
-
-# Increase the number of open file descriptors
-try:
-    rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
-    # Set the soft limit to the hard limit
-    resource.setrlimit(resource.RLIMIT_NOFILE, (rlimit[1], rlimit[1]))
-except (ValueError, OSError) as e:
-    print(f"Could not set RLIMIT_NOFILE: {e}")
-
-
-def download_dataset():
-    """
-    Downloads the dataset from Kaggle using the Kaggle API.
-
-    Raises:
-        RuntimeError: If the required environment variables for Kaggle API are not set.
-
-    Returns:
-        None
-    """
-    username = os.getenv("KAGGLE_USERNAME")
-    api_key = os.getenv("KAGGLE_KEY")
-    if api_key is None or username is None:
-        raise RuntimeError(
-            "Environment variable 'kaggle_key' and or 'username' is not set!"
-        )
-
-    os.environ["KAGGLE_USERNAME"] = username
-    os.environ["KAGGLE_KEY"] = api_key
-
-    from kaggle import api
-
-    api.authenticate()
-    print("download dataset")
-    api.dataset_download_files(
-        "lakshaytyagi01/fruit-detection", path="./data", unzip=True
-    )
 
 
 def make_datasets(cfg: DictConfig) -> Tuple[DET_DS, DET_DS, DET_DS]:
@@ -66,8 +28,6 @@ def make_datasets(cfg: DictConfig) -> Tuple[DET_DS, DET_DS, DET_DS]:
     Returns:
         Tuple[DET_DS, DET_DS, DET_DS]: The training, testing, and validation datasets.
     """
-    if cfg.download_data:
-        download_dataset()
 
     print("making datasets")
 
