@@ -1,6 +1,8 @@
-# Fruit Internship Project
+# Object Detection Framework
 
-Transformer-based object detection pipeline for fruit localization, built as part of a university internship.
+A flexible, production-ready object detection framework built on Hugging Face Transformers. Works with **any YOLO-format dataset** and supports a wide range of transformer-based detection models out of the box.
+
+> Originally developed as part of a university internship for fruit localization, this framework has evolved into a general-purpose object detection pipeline suitable for any detection task.
 
 ---
 
@@ -8,13 +10,20 @@ Transformer-based object detection pipeline for fruit localization, built as par
 
 This repository provides a modular and reproducible deep learning pipeline for object detection using transformer models from Hugging Face. It is built with scalability and maintainability in mind, following best practices in code structure, configuration, and logging.
 
+**Use Cases:**
+- Custom object detection for any domain (agriculture, medical, industrial, etc.)
+- Fine-tuning pretrained models on your own datasets
+- Rapid experimentation with different model architectures
+- Production training with advanced features (EMA, mixed precision, gradient accumulation)
+
 Key components:
-- Object detection using RT-DETR v2
+- **25+ pretrained models** including RT-DETR, D-FINE, DETR, YOLOS, and more
 - Configurable training via Hydra
-- Advanced augmentations with Albumentations
+- Advanced augmentations with Albumentations (including Mosaic)
 - Experiment tracking with Weights & Biases
 - Early stopping and mixed precision training
 - Class-imbalanced sampling strategies
+- Flexible dataset configuration (supports multiple folder structures)
 - Sphinx-based auto-generated documentation
 
 ---
@@ -44,6 +53,69 @@ mohamedkhayat-fruit_internship/
 ├── pyproject.toml          # Build and tool configuration
 └── README.md               # Project description
 ```
+
+---
+
+## Supported Models
+
+The framework supports **25+ pretrained models** from Hugging Face, organized by architecture:
+
+| Model Family | Variants | Description |
+|---|---|---|
+| **RT-DETR v2** | `rtdetrv2_18`, `rtdetrv2_34`, `rtdetrv2_50`, `rtdetrv2_101` | Real-Time DETR with improved accuracy |
+| **RT-DETR v1** | `rtdetrv1_18`, `rtdetrv1_34`, `rtdetrv1_50`, `rtdetrv1_101` | Original Real-Time DETR |
+| **RT-DETR v1 (Objects365)** | `rtdetrv1_50_365`, `rtdetrv1_101_365` | Pretrained on Objects365 dataset |
+| **D-FINE** | `dfine_large_coco`, `dfine_xlarge_coco` | High-accuracy detection model |
+| **D-FINE (Objects365)** | `dfine_large_obj365`, `dfine_xlarge_obj365` | Pretrained on Objects365 |
+| **D-FINE (Obj2COCO)** | `dfine_large_obj2coco`, `dfine_xlarge_obj2coco` | Objects365 → COCO transfer |
+| **DETR** | `detr_50`, `detr_101`, `detr_50_dc5` | Original Facebook DETR |
+| **Conditional DETR** | `cond_detr_50` | Faster converging DETR variant |
+| **DAB-DETR** | `dab_detr_50` | Dynamic anchor boxes DETR |
+| **Deformable DETR** | `defor_detr` | Deformable attention DETR |
+| **YOLOS** | `yolos_tiny`, `yolos_small`, `yolos_base` | ViT-based detection |
+
+### Adding a New Model
+
+To add support for a new Hugging Face model:
+
+#### Step 1: Create a Model Configuration File
+
+Create a new YAML file in `conf/model/` (e.g., `conf/model/my_new_model.yaml`):
+
+```yaml
+name: my_new_model          # Unique identifier (must match filename)
+input_height: 640           # Model input height
+input_width: 640            # Model input width
+do_normalize: True          # Whether to normalize images (check model docs)
+grad_max_norm: 0.1          # Gradient clipping max norm
+```
+
+#### Step 2: Register the Model in the Factory
+
+Add your model to the `supported_models` dictionary in `src/fruit_project/models/model_factory.py`:
+
+```python
+supported_models = {
+    # ... existing models ...
+    "my_new_model": "huggingface-org/model-checkpoint-name",
+}
+```
+
+#### Step 3: Use Your Model
+
+```bash
+python src/fruit_project/main.py model=my_new_model root_dir=my_dataset
+```
+
+### Model Configuration Options
+
+| Parameter | Description | Typical Values |
+|---|---|---|
+| `name` | Unique model identifier (must match `supported_models` key) | String |
+| `input_height` | Input image height in pixels | `640`, `800`, `1024` |
+| `input_width` | Input image width in pixels | `640`, `800`, `1024` |
+| `do_normalize` | Whether the processor should normalize images | `True` / `False` |
+| `grad_max_norm` | Maximum gradient norm for clipping | `0.1` (typical for DETR-like models) |
 
 ---
 
@@ -398,9 +470,11 @@ Each dataset has its own configuration file that defines the folder structure an
 
 ## Features
 
-* Transformer-based object detection (RT-DETRv2)
+* **25+ pretrained models** - RT-DETR, D-FINE, DETR, YOLOS, and more from Hugging Face
+* **Any YOLO-format dataset** - Flexible folder structure configuration
+* **Easy model extension** - Add new models with just a YAML config file
 * Modular model factory (configurable via YAML)
-* Differentiable learning rates for fine-tuning (backbone, encoder/decoder, prediction heads)
+* Differentiable learning rates for fine-tuning (backbone, neck, prediction heads)
 * Gradient accumulation to simulate larger batch sizes
 * Advanced augmentation pipelines with Albumentations, including Mosaic
 * Stratified sampling (max/mean) to handle class imbalance
@@ -412,6 +486,7 @@ Each dataset has its own configuration file that defines the folder structure an
   * Checkpoint artifact logging
 
 * Mixed precision support using `torch.cuda.amp`
+* Exponential Moving Average (EMA) for stable training
 * Early stopping with automatic best model restoration
 * Clean and extensible codebase
 
