@@ -106,7 +106,7 @@ def get_transforms(cfg: DictConfig, id2label: Dict[int, str]) -> Dict[str, A.Com
                         p=1.0,
                     ),
                 ],
-                p=0.2,
+                p=0.9,
             ),
             A.HorizontalFlip(p=0.5),
             A.Perspective(
@@ -129,7 +129,22 @@ def get_transforms(cfg: DictConfig, id2label: Dict[int, str]) -> Dict[str, A.Com
     transforms = {
         "train": hard_train_transforms if cfg.aug == "hard" else safe_train_transforms,
         "train_easy": safe_train_transforms,
-        "test": A.Compose([A.NoOp()], bbox_params=test_bbox_params),
+        "test": A.Compose(
+            [
+                A.SmallestMaxSize(
+                    max_size_hw=(cfg.model.input_height, cfg.model.input_width),
+                    p=1.0,
+                ),
+                A.RandomSizedBBoxSafeCrop(
+                    height=cfg.model.input_height,
+                    width=cfg.model.input_width,
+                    erosion_rate=0.1,
+                    p=1.0,
+                ),
+            ],
+            p=1.0,
+            bbox_params=test_bbox_params,
+        ),
     }
     return transforms
 
