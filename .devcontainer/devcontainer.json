@@ -1,7 +1,7 @@
 {
     "name": "Fruit Internship Container",
     "build":{
-        "dockerfile" : "Dockerfile",
+        "dockerfile" : "../Dockerfile",
         "context" : ".."
     },
      "runArgs": [
