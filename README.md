@@ -35,11 +35,13 @@ mohamedkhayat-fruit_internship/
 ├── conf/                   # Hydra configuration files
 │   ├── config.yaml         # Base training config
 │   └── model/              # Model-specific configs
+├── checkpoints/            # Model checkpoints
 ├── docs/                   # Sphinx documentation
 │   ├── conf.py             # Sphinx configuration
 │   └── index.rst           # Main documentation file
 ├── src/fruit_project/      # Core codebase
 │   ├── main.py             # Main training script
+│   ├── config.py           # Shared configuration for inference (models, classes, etc.)
 │   ├── models/             # Model-related modules
 │   │   ├── model_factory.py      # Factory for creating models
 │   │   └── transforms_factory.py # Factory for creating data augmentations
@@ -50,6 +52,8 @@ mohamedkhayat-fruit_internship/
 │       ├── logging.py      # Logging utilities
 │       ├── metrics.py      # Metrics and evaluation
 │       └── trainer.py      # Training loop
+├── streamlit_app.py        # Inference UI application
+├── upload_to_hf.py         # Script to upload models to HuggingFace
 ├── pyproject.toml          # Build and tool configuration
 └── README.md               # Project description
 ```
@@ -489,6 +493,97 @@ Each dataset has its own configuration file that defines the folder structure an
 * Exponential Moving Average (EMA) for stable training
 * Early stopping with automatic best model restoration
 * Clean and extensible codebase
+
+---
+
+## Inference
+
+### Streamlit UI
+
+A web-based interface for running inference with trained models. Supports both local checkpoints and HuggingFace-hosted models.
+
+**Install Streamlit:**
+```bash
+pip install streamlit
+```
+
+**Run the app:**
+```bash
+streamlit run streamlit_app.py
+```
+
+The UI allows you to:
+1. **Select Model Source**: Choose between `local` (`.pth` files from `checkpoints/save/`) or `huggingface` (pre-trained models)
+2. **Select Model**: Pick from available models based on your source selection
+3. **Upload Image**: Upload any image containing fruits/vegetables
+4. **Adjust Threshold**: Set the confidence threshold for detections
+5. **Run Detection**: View bounding boxes and class predictions
+
+### Pre-trained Models on HuggingFace
+
+We provide **16 pre-trained fruit detection models** on HuggingFace Hub:
+
+| Model | Architecture | mAP@50 | HuggingFace ID |
+|-------|-------------|--------|----------------|
+| RT-DETRv2-101 | RT-DETR v2 | 0.6797 | `MohamedKhayat/fruit-detector-rtdetrv2-101` |
+| RT-DETRv1-101 | RT-DETR v1 | 0.6775 | `MohamedKhayat/fruit-detector-rtdetrv1-101` |
+| RT-DETRv1-50 | RT-DETR v1 | 0.6678 | `MohamedKhayat/fruit-detector-rtdetrv1-50` |
+| D-FINE XLarge | D-FINE | 0.6631 | `MohamedKhayat/fruit-detector-dfine-xlarge` |
+| RT-DETRv1-50 (obj365) | RT-DETR v1 | 0.6524 | `MohamedKhayat/fruit-detector-rtdetrv1-50-obj365` |
+| D-FINE Large | D-FINE | 0.6524 | `MohamedKhayat/fruit-detector-dfine-large` |
+| RT-DETRv2-50 | RT-DETR v2 | 0.6506 | `MohamedKhayat/fruit-detector-rtdetrv2-50` |
+| D-FINE Large (obj365) | D-FINE | 0.6448 | `MohamedKhayat/fruit-detector-dfine-large-obj365` |
+| RT-DETRv1-101 (obj365) | RT-DETR v1 | 0.6299 | `MohamedKhayat/fruit-detector-rtdetrv1-101-obj365` |
+| D-FINE XLarge (obj365) | D-FINE | 0.6085 | `MohamedKhayat/fruit-detector-dfine-xlarge-obj365` |
+| Deformable DETR | Deformable DETR | 0.5961 | `MohamedKhayat/fruit-detector-deformable-detr` |
+| Conditional DETR-50 | Conditional DETR | 0.5820 | `MohamedKhayat/fruit-detector-conditional-detr-50` |
+| DETR-101 | DETR | 0.5712 | `MohamedKhayat/fruit-detector-detr-101` |
+| DAB-DETR-50 | DAB-DETR | 0.5695 | `MohamedKhayat/fruit-detector-dab-detr-50` |
+| DETR-50 | DETR | 0.5694 | `MohamedKhayat/fruit-detector-detr-50` |
+| YOLOS Base | YOLOS | 0.5585 | `MohamedKhayat/fruit-detector-yolos-base` |
+
+**Detected Classes (12):** Apple, Cherry, Figs, Olive, Pomegranate, Orange, Rockmelon, Strawberry, Potato, Tomato, Watermelon, Bell-pepper
+
+### Python Usage
+
+```python
+from transformers import AutoImageProcessor, AutoModelForObjectDetection
+from PIL import Image
+import torch
+
+# Load model and processor
+model_id = "MohamedKhayat/fruit-detector-rtdetrv2-101"
+processor = AutoImageProcessor.from_pretrained(model_id)
+model = AutoModelForObjectDetection.from_pretrained(model_id)
+
+# Load and process image
+image = Image.open("fruit_image.jpg")
+inputs = processor(images=image, return_tensors="pt")
+
+# Run inference
+with torch.no_grad():
+    outputs = model(**inputs)
+
+# Post-process results
+target_sizes = torch.tensor([[image.height, image.width]])
+results = processor.post_process_object_detection(
+    outputs, threshold=0.5, target_sizes=target_sizes
+)[0]
+
+for score, label, box in zip(results["scores"], results["labels"], results["boxes"]):
+    print(f"Detected {model.config.id2label[label.item()]} with confidence {score:.2f}")
+```
+
+### Uploading Models to HuggingFace
+
+To upload your trained checkpoints to HuggingFace Hub:
+
+```bash
+export HF_TOKEN="your_huggingface_token"
+python upload_to_hf.py \
+    --checkpoint checkpoints/save/model-rtdetrv2_50_lr-0.0001_0902_2210_0.6506.pth \
+    --repo-name fruit-detector-my-model
+```
 
 ---
 
