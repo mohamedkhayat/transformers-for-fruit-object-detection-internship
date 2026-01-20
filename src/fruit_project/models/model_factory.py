@@ -4,6 +4,7 @@
 import torch
 import torch.nn as nn
 from fruit_project.models.transforms_factory import get_transforms
+from fruit_project.config import SUPPORTED_MODELS
 from omegaconf import DictConfig
 from typing import Any, Dict, List, Tuple
 from albumentations import Compose
@@ -13,33 +14,7 @@ from transformers import (
     AutoConfig,
 )
 
-supported_models = {
-    "rtdetrv2_18": "PekingU/rtdetr_v2_r18vd",
-    "rtdetrv2_34": "PekingU/rtdetr_v2_r34vd",
-    "rtdetrv2_50": "PekingU/rtdetr_v2_r50vd",
-    "rtdetrv2_101": "PekingU/rtdetr_v2_r101vd",
-    "rtdetrv1_18": "PekingU/rtdetr_r18vd",
-    "rtdetrv1_34": "PekingU/rtdetr_r34vd",
-    "rtdetrv1_50": "PekingU/rtdetr_r50vd",
-    "rtdetrv1_50_365": "PekingU/rtdetr_r50vd_coco_o365",
-    "rtdetrv1_101": "PekingU/rtdetr_r101vd",
-    "rtdetrv1_101_365": "PekingU/rtdetr_r101vd_coco_o365",
-    "detr_50": "facebook/detr-resnet-50",
-    "detr_101": "facebook/detr-resnet-101",
-    "detr_50_dc5": "facebook/detr-resnet-50-dc5",
-    "cond_detr_50": "microsoft/conditional-detr-resnet-50",
-    "yolos_tiny": "hustvl/yolos-tiny",
-    "yolos_small": "hustvl/yolos-small",
-    "yolos_base": "hustvl/yolos-base",
-    "defor_detr": "SenseTime/deformable-detr",
-    "dab_detr_50": "IDEA-Research/dab-detr-resnet-50",
-    "dfine_large_coco": "ustc-community/dfine-large-coco",
-    "dfine_xlarge_coco": "ustc-community/dfine-xlarge-coco",
-    "dfine_large_obj365": "ustc-community/dfine-large-obj365",
-    "dfine_xlarge_obj365": "ustc-community/dfine-xlarge-obj365",
-    "dfine_large_obj2coco": "ustc-community/dfine-large-obj2coco-e25",
-    "dfine_xlarge_obj2coco": "ustc-community/dfine-xlarge-obj2coco",
-}
+supported_models = SUPPORTED_MODELS
 
 
 def get_model(
