@@ -600,10 +600,12 @@ class Trainer:
                     val_metrics,
                     self,
                 )
-
-            if self.early_stopping(val_metrics["map@50:95"], self.model):
-                tqdm.write(f"Early stopping triggered at epoch {epoch}.")
-                break
+                
+            if self.ema:
+                with self.ema.average_parameters():
+                    stop = self.early_stopping(val_metrics["map@50:95"], self.model)
+            else:
+                stop = self.early_stopping(val_metrics["map@50:95"], self.model)
 
         tqdm.write("Training finished.")
 
