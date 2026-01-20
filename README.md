@@ -94,12 +94,12 @@ do_normalize: True          # Whether to normalize images (check model docs)
 grad_max_norm: 0.1          # Gradient clipping max norm
 ```
 
-#### Step 2: Register the Model in the Factory
+#### Step 2: Register the Model in the Config
 
-Add your model to the `supported_models` dictionary in `src/fruit_project/models/model_factory.py`:
+Add your model to the `SUPPORTED_MODELS` dictionary in `src/fruit_project/config.py`:
 
 ```python
-supported_models = {
+SUPPORTED_MODELS: Dict[str, str] = {
     # ... existing models ...
     "my_new_model": "huggingface-org/model-checkpoint-name",
 }
