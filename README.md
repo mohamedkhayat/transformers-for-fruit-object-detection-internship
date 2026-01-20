@@ -592,7 +592,7 @@ python upload_to_hf.py \
 Auto-generated using Sphinx + AutoAPI.
 
 view docs:
-`https://mohamedkhayat.github.io/fruit_internship`
+`https://mohamedkhayat.github.io/transformers-for-fruit-object-detection-internship/`
 
 ---
 
