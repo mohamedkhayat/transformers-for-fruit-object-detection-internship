@@ -198,6 +198,7 @@ Training/
 Test/
 checkpoints/
 wandb/
+docs/autoapi/
 
 # But keep the empty directory structure:
 !data/.gitkeep
