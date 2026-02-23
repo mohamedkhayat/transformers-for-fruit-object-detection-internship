@@ -168,7 +168,11 @@ class Trainer:
             mismatched_keys = set(loading_info.get("mismatched_keys", []))
             missing_keys = set(loading_info.get("missing_keys", []))
 
-            new_param_names = mismatched_keys.union(missing_keys)
+            new_param_names = set()
+            for k in mismatched_keys:
+                new_param_names.add(k[0] if isinstance(k, (list, tuple)) else k)
+            for k in missing_keys:
+                new_param_names.add(k[0] if isinstance(k, (list, tuple)) else k)
 
             head_params_final, neck_params, backbone_params = [], [], []
             for name, param in self.model.named_parameters():
@@ -286,7 +290,7 @@ class Trainer:
         return formatted_targets
 
     def forward_step_map(self, batch_idx, batch):
-        with torch.autocast(device_type=self.device.type, dtype=torch.float16):
+        with torch.autocast(device_type=self.device.type, dtype=torch.bfloat16):
             out = self.model(**batch)
 
         batch_loss = out.loss / self.accum_steps
