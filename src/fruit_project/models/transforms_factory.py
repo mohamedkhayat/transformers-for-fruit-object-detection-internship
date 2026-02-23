@@ -19,7 +19,8 @@ def get_transforms(cfg: DictConfig, id2label: Dict[int, str]) -> Dict[str, A.Com
     """
     train_bbox_params, test_bbox_params = get_bbox_params(cfg)
     box_labels = [k for k in id2label.keys()]
-    hard_train_transforms = A.Compose(
+
+    multi_view_crop = A.OneOf(
         [
             A.Compose(
                 [
@@ -30,12 +31,67 @@ def get_transforms(cfg: DictConfig, id2label: Dict[int, str]) -> Dict[str, A.Com
                     A.RandomSizedBBoxSafeCrop(
                         height=cfg.model.input_height,
                         width=cfg.model.input_width,
+                        erosion_rate=0.0,
+                        p=1.0,
+                    ),
+                ]
+            ),
+            A.Compose(
+                [
+                    A.SmallestMaxSize(
+                        max_size_hw=(
+                            int(cfg.model.input_height * 1.5),
+                            int(cfg.model.input_width * 1.5),
+                        ),
+                        p=1.0,
+                    ),
+                    A.RandomSizedBBoxSafeCrop(
+                        height=cfg.model.input_height,
+                        width=cfg.model.input_width,
                         erosion_rate=0.1,
                         p=1.0,
                     ),
-                ],
-                p=0.2,
+                ]
             ),
+            A.Compose(
+                [
+                    A.SmallestMaxSize(
+                        max_size_hw=(
+                            cfg.model.input_height * 3,
+                            cfg.model.input_width * 3,
+                        ),
+                        p=1.0,
+                    ),
+                    A.RandomSizedBBoxSafeCrop(
+                        height=cfg.model.input_height,
+                        width=cfg.model.input_width,
+                        erosion_rate=0.2,
+                        p=1.0,
+                    ),
+                ]
+            ),
+        ],
+        p=1.0,
+    )
+
+    hard_train_transforms = A.Compose(
+        [
+            # A.Compose(
+            #     [
+            #         A.SmallestMaxSize(
+            #             max_size_hw=(cfg.model.input_height, cfg.model.input_width),
+            #             p=1.0,
+            #         ),
+            #         A.RandomSizedBBoxSafeCrop(
+            #             height=cfg.model.input_height,
+            #             width=cfg.model.input_width,
+            #             erosion_rate=0.1,
+            #             p=1.0,
+            #         ),
+            #     ],
+            #     p=0.2,
+            # ),
+            multi_view_crop,
             A.HorizontalFlip(p=0.5),
             A.Perspective(
                 scale=(0.02, 0.05),
@@ -43,13 +99,22 @@ def get_transforms(cfg: DictConfig, id2label: Dict[int, str]) -> Dict[str, A.Com
                 fill=(114, 114, 114),
                 p=0.15,
             ),
+            # Add this to your hard_train_transforms
+            A.OneOf(
+                [
+                    A.Sharpen(p=0.5),
+                    A.Emboss(p=0.5),
+                    A.RandomToneCurve(p=0.5),
+                ],
+                p=0.2,
+            ),
             A.ConstrainedCoarseDropout(
                 num_holes_range=(1, 2),
                 hole_height_range=(0.02, 0.08),
                 hole_width_range=(0.02, 0.08),
                 fill=(114, 114, 114),
                 bbox_labels=box_labels,
-                p=0.05,
+                p=0.01,
             ),
             A.OneOf(
                 [
@@ -62,7 +127,7 @@ def get_transforms(cfg: DictConfig, id2label: Dict[int, str]) -> Dict[str, A.Com
                     A.RandomGamma(gamma_limit=(60, 100), p=0.5),
                     A.RandomToneCurve(p=0.5),
                 ],
-                p=0.3,
+                p=0.2,
             ),
             A.OneOf(
                 [
@@ -76,7 +141,7 @@ def get_transforms(cfg: DictConfig, id2label: Dict[int, str]) -> Dict[str, A.Com
                         r_shift_limit=10, g_shift_limit=10, b_shift_limit=10, p=0.5
                     ),
                 ],
-                p=0.3,
+                p=0.2,
             ),
             A.OneOf(
                 [
