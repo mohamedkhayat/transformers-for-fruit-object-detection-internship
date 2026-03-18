@@ -99,7 +99,6 @@ def get_transforms(cfg: DictConfig, id2label: Dict[int, str]) -> Dict[str, A.Com
                 fill=(114, 114, 114),
                 p=0.15,
             ),
-            # Add this to your hard_train_transforms
             A.OneOf(
                 [
                     A.Sharpen(p=0.5),

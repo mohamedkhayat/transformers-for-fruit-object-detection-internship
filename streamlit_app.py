@@ -21,10 +21,8 @@ from enum import Enum
 
 import streamlit as st
 import torch
-import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from transformers import AutoImageProcessor, AutoModelForObjectDetection, AutoConfig
-import albumentations as A
 
 # Import shared configuration
 from fruit_project.config import (
@@ -39,6 +37,63 @@ from fruit_project.config import (
     get_do_normalize,
 )
 
+
+APP_CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+html, body, [class*="css"]  {
+    font-family: 'Space Grotesk', sans-serif;
+}
+
+.section-title {
+    font-weight: 700;
+    font-size: 1.15rem;
+    margin-bottom: 0.2rem;
+}
+
+.section-sub {
+    color: #5f7864;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+/* Make primary button match the green theme */
+div.stButton > button[kind="primary"] {
+    background-color: #2f9e44;
+    color: white;
+    border: none;
+    font-weight: 600;
+}
+div.stButton > button[kind="primary"]:hover {
+    background-color: #237b34;
+}
+
+/* Limit max height of images drastically to prevent vertical scroll */
+[data-testid="stImage"] img {
+    max-height: 55vh;
+    object-fit: contain;
+}
+
+.class-pill {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #dbe9d9;
+    border-radius: 999px;
+    padding: 0.28rem 0.58rem;
+    margin: 0.18rem 0.12rem 0.18rem 0;
+    font-size: 0.82rem;
+}
+
+.dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 0.42rem;
+    display: inline-block;
+}
+</style>
+"""
 
 # ============================================================================
 # DATA CLASSES
@@ -281,16 +336,6 @@ def load_model(model_info: ModelInfo, device: str):
 # ============================================================================
 
 
-def get_inference_transforms(height: int = 640, width: int = 640) -> A.Compose:
-    """Get transforms for inference matching training test transforms."""
-    return A.Compose(
-        [
-            A.SmallestMaxSize(max_size_hw=(height, width), p=1.0),
-            A.CenterCrop(height=height, width=width, p=1.0),
-        ]
-    )
-
-
 def run_inference(
     model,
     processor,
@@ -313,24 +358,16 @@ def run_inference(
     Returns:
         Tuple of (list of Detection objects, transformed image)
     """
-    # Apply transforms
-    transforms = get_inference_transforms(640, 640)
-    img_array = np.array(image)
-    transformed = transforms(image=img_array)
-    transformed_image = Image.fromarray(transformed["image"])
-
-    # Process image
-    inputs = processor(images=transformed_image, return_tensors="pt")
+    # Let HuggingFace processor handle resize and pad natively
+    inputs = processor(images=image, return_tensors="pt")
     inputs = {k: v.to(device) for k, v in inputs.items()}
 
     # Run inference
     with torch.no_grad():
         outputs = model(**inputs)
 
-    # Post-process
-    target_sizes = torch.tensor(
-        [[transformed_image.height, transformed_image.width]], device=device
-    )
+    # Post-process scaling back to original size
+    target_sizes = torch.tensor([[image.height, image.width]], device=device)
     results = processor.post_process_object_detection(
         outputs,
         threshold=confidence_threshold,
@@ -358,7 +395,7 @@ def run_inference(
             )
         )
 
-    return detections, transformed_image
+    return detections, image
 
 
 # ============================================================================
@@ -432,60 +469,69 @@ def draw_detections(
 def render_sidebar() -> Tuple[Optional[ModelInfo], float, int, int, str]:
     """Render the sidebar and return user selections."""
     with st.sidebar:
-        st.header("⚙️ Settings")
+        st.markdown(
+            '<div class="section-title">🍓 Fruit Detection</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<div class="section-sub">Upload an image to process.</div>',
+            unsafe_allow_html=True,
+        )
+
+        # 1. MOVE UPLOADER HERE
+        uploaded_file = st.file_uploader(
+            "Choose an image...",
+            type=["jpg", "jpeg", "png", "webp"],
+            key="image_uploader",
+            label_visibility="collapsed",
+        )
+
+        st.session_state["uploaded_file"] = uploaded_file
+
+        if uploaded_file:
+            current_id = uploaded_file.file_id
+            if st.session_state.get("last_file_id") != current_id:
+                st.session_state["last_file_id"] = current_id
+                for key in ["detections", "inference_done"]:
+                    st.session_state.pop(key, None)
+
+            if st.button("🚀 Run Detection", type="primary", use_container_width=True):
+                st.session_state["trigger_inference"] = True
+
+        st.divider()
 
         # Model selection
         models = get_all_available_models()
-
         if not models:
             st.error("No models found. Add local checkpoints or configure HF models.")
             st.stop()
 
+        st.markdown('<div class="section-title">Settings</div>', unsafe_allow_html=True)
         selected_name = st.selectbox(
             "Select Model",
             options=list(models.keys()),
             help="Choose a model for detection",
         )
-
         model_info = models[selected_name]
 
-        # Model info
-        st.caption(f"Architecture: `{model_info.architecture}`")
-        st.caption(f"Source: `{model_info.source.value}`")
-        if model_info.source == ModelSource.LOCAL:
-            st.caption(
-                f"Base: `{SUPPORTED_MODELS.get(model_info.architecture, 'Unknown')}`"
-            )
-
-        st.divider()
-
         # Detection settings
-        confidence = st.slider(
-            "Confidence Threshold",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.5,
-            step=0.05,
-        )
+        confidence = st.slider("Confidence Threshold", 0.0, 1.0, 0.5, 0.05)
 
         # Display settings
-        st.subheader("Display")
         line_width = st.slider("Box Line Width", 1, 10, 3)
         font_size = st.slider("Font Size", 10, 30, 16)
 
-        # Device info
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        st.info(f"Device: **{device.upper()}**")
 
         st.divider()
-
-        # Class legend
         st.subheader("Classes")
-        for i, (name, color) in enumerate(zip(CLASS_NAMES, COLORS)):
-            st.markdown(
-                f'<span style="color:{color}; font-weight:bold;">●</span> {name}',
-                unsafe_allow_html=True,
-            )
+        class_badges = "".join(
+            [
+                f'<span class="class-pill"><span class="dot" style="background:{c}"></span>{n}</span>'
+                for n, c in zip(CLASS_NAMES, COLORS)
+            ]
+        )
+        st.markdown(class_badges, unsafe_allow_html=True)
 
         return model_info, confidence, line_width, font_size, device
 
@@ -497,91 +543,87 @@ def render_main_content(
     font_size: int,
     device: str,
 ):
-    """Render the main content area."""
+    """Render the main content area exclusively for image side-by-side."""
+    st.title("Results Explorer")
+
+    # Simple top metrics instead of a giant gradient hero box
+    source_label = (
+        "Local checkpoint"
+        if model_info.source == ModelSource.LOCAL
+        else "Hugging Face Hub"
+    )
+    map_stat = f" • mAP: {model_info.score}" if model_info.score else ""
+    st.caption(f"**Model:** `{model_info.architecture}` via {source_label}{map_stat}")
+
+    uploaded_file = st.session_state.get("uploaded_file")
+
+    if uploaded_file is None:
+        st.info("👈 Please upload an image from the sidebar to begin.")
+        return
+
+    # User pressed "Run Detection" in the sidebar
+    image = Image.open(uploaded_file).convert("RGB")
+
+    if st.session_state.get("trigger_inference"):
+        with st.spinner("Loading model..."):
+            try:
+                model, processor, id2label = load_model(model_info, device)
+            except Exception as e:
+                st.error(f"Failed to load model: {e}")
+                st.stop()
+        with st.spinner("Running inference..."):
+            try:
+                detections, _ = run_inference(
+                    model, processor, image, device, id2label, confidence_threshold=0.01
+                )
+                st.session_state["detections"] = detections
+                st.session_state["inference_done"] = True
+                st.session_state["trigger_inference"] = False
+            except Exception as e:
+                st.error(f"Inference failed: {e}")
+                st.stop()
+
+    # Image layout
     col1, col2 = st.columns(2)
-
     with col1:
-        st.subheader("📤 Upload Image")
-        uploaded_file = st.file_uploader(
-            "Choose an image...",
-            type=["jpg", "jpeg", "png", "webp"],
-            key="image_uploader",
-        )
-
-        image = None
-        if uploaded_file is not None:
-            # Clear results on new image
-            current_id = uploaded_file.file_id
-            if st.session_state.get("last_file_id") != current_id:
-                st.session_state["last_file_id"] = current_id
-                for key in ["detections", "result_image"]:
-                    st.session_state.pop(key, None)
-
-            image = Image.open(uploaded_file).convert("RGB")
-            st.image(image, caption="Uploaded Image", use_container_width=True)
+        st.markdown('<div class="section-title">Original</div>', unsafe_allow_html=True)
+        st.image(image, use_container_width=True)
 
     with col2:
-        st.subheader("🔍 Results")
-
-        if image is not None:
-            if st.button("🚀 Run Detection", type="primary", use_container_width=True):
-                with st.spinner("Loading model..."):
-                    try:
-                        model, processor, id2label = load_model(model_info, device)
-                    except Exception as e:
-                        st.error(f"Failed to load model: {e}")
-                        st.stop()
-
-                with st.spinner("Running inference..."):
-                    try:
-                        detections, transformed = run_inference(
-                            model, processor, image, device, id2label, confidence
-                        )
-                    except Exception as e:
-                        st.error(f"Inference failed: {e}")
-                        st.stop()
-
-                st.session_state["detections"] = detections
-                st.session_state["result_image"] = draw_detections(
-                    transformed, detections, line_width, font_size
-                )
-
-            # Display results
-            if "result_image" in st.session_state:
-                st.image(
-                    st.session_state["result_image"],
-                    caption="Detection Results",
-                    use_container_width=True,
-                )
-
-                detections = st.session_state.get("detections", [])
-                if detections:
-                    st.success(f"Found {len(detections)} object(s)")
-
-                    # Detection table
-                    st.subheader("📊 Details")
-                    data = [
-                        {
-                            "#": i,
-                            "Class": d.label_name,
-                            "Confidence": f"{d.score:.2%}",
-                            "Box": f"({d.box[0]:.0f}, {d.box[1]:.0f}, {d.box[2]:.0f}, {d.box[3]:.0f})",
-                        }
-                        for i, d in enumerate(detections, 1)
-                    ]
-                    st.dataframe(data, use_container_width=True)
-
-                    # Summary
-                    st.subheader("📈 Summary")
-                    counts = {}
-                    for d in detections:
-                        counts[d.label_name] = counts.get(d.label_name, 0) + 1
-                    for name, count in sorted(counts.items(), key=lambda x: -x[1]):
-                        st.write(f"- **{name}**: {count}")
-                else:
-                    st.warning("No objects detected above threshold.")
+        st.markdown(
+            '<div class="section-title">Detections</div>', unsafe_allow_html=True
+        )
+        if st.session_state.get("inference_done"):
+            # Filter dynamically on slider move
+            filtered = [
+                d for d in st.session_state["detections"] if d.score >= confidence
+            ]
+            drawn_img = draw_detections(image, filtered, line_width, font_size)
+            st.image(drawn_img, use_container_width=True)
         else:
-            st.info("👆 Upload an image to get started")
+            st.info("👈 Adjust your parameters and click Run Detection.", icon="ℹ️")
+
+    # Metrics Layout beneath Images
+    if st.session_state.get("inference_done"):
+        filtered = [d for d in st.session_state["detections"] if d.score >= confidence]
+        if filtered:
+            counts = {}
+            for d in filtered:
+                counts[d.label_name] = counts.get(d.label_name, 0) + 1
+
+            st.markdown(
+                '<div class="section-title" style="margin-top: 2rem;">Detection Summary</div>',
+                unsafe_allow_html=True,
+            )
+
+            # Display simple inline metrics
+            cols = st.columns(max(len(counts), 1))
+            for col, (name, count) in zip(
+                cols, sorted(counts.items(), key=lambda x: -x[1])
+            ):
+                col.metric(label=name, value=count)
+        else:
+            st.warning("No objects detected above the chosen threshold.")
 
 
 # ============================================================================
@@ -596,8 +638,7 @@ def main():
         layout="wide",
     )
 
-    st.title("🍎 Fruit Detection")
-    st.markdown("Upload an image and select a model to detect fruits.")
+    st.markdown(APP_CSS, unsafe_allow_html=True)
 
     # Render UI
     model_info, confidence, line_width, font_size, device = render_sidebar()
